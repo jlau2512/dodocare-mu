@@ -5,7 +5,7 @@ import {
   Heart, Activity, ArrowLeft, Star, Check, Plus,
   Shield, Filter, Phone, TrendingUp, Award, FlaskConical,
   Microscope, Zap, Building2, TestTube, ScanLine, Stethoscope,
-  CreditCard, Settings, LogOut, ChevronDown, X, Info
+  CreditCard, Settings, LogOut, Info
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -162,7 +162,7 @@ const CSS = `
 ═══════════════════════════════════════════════════════════════ */
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home')
-  const [bookingFor, setBookingFor] = useState<BookingFor>('hospital')
+  const [_bookingFor, setBookingFor] = useState<BookingFor>('hospital')
   const [bookStep, setBookStep] = useState(1)
   const [selectedHospital, setSelectedHospital] = useState<typeof HOSPITALS[0] | null>(null)
   const [selectedLab, setSelectedLab] = useState<typeof LABS[0] | null>(null)
@@ -252,7 +252,7 @@ export default function App() {
 /* ═══════════════════════════════════════════════════════════════
    HOME SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function HomeScreen({ setScreen, sosActive, setSosActive, startHospitalBooking, startLabBooking }: any) {
+function HomeScreen({ setScreen, sosActive, setSosActive }: any) {
   return (
     <div className="flex flex-col" style={{ background: '#F1F5F9' }}>
       {/* Hero */}
@@ -1205,7 +1205,7 @@ function RecordsScreen({ setScreen }: any) {
 /* ═══════════════════════════════════════════════════════════════
    PROFILE SCREEN
 ═══════════════════════════════════════════════════════════════ */
-function ProfileScreen({ setScreen }: any) {
+function ProfileScreen({ setScreen: _setScreen }: any) {
   return (
     <div className="flex flex-col" style={{ background: '#F1F5F9', minHeight: '100%' }}>
       {/* Header */}
