@@ -160,14 +160,36 @@ CREATE TRIGGER appointments_updated_at BEFORE UPDATE ON appointments FOR EACH RO
 CREATE TRIGGER lab_bookings_updated_at BEFORE UPDATE ON lab_bookings FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER home_visits_updated_at BEFORE UPDATE ON home_visits FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- Handle new patient signup (auto-create patient profile from auth metadata)
-CREATE OR REPLACE FUNCTION handle_new_patient()
+-- Combined signup handler: replaces BOTH handle_new_user and handle_new_patient
+-- Drop old separate triggers first
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP TRIGGER IF EXISTS on_auth_user_created_patient ON auth.users;
+DROP FUNCTION IF EXISTS handle_new_user();
+DROP FUNCTION IF EXISTS handle_new_patient();
+
+CREATE OR REPLACE FUNCTION handle_new_user_signup()
 RETURNS TRIGGER
 SECURITY DEFINER SET search_path = public
 LANGUAGE plpgsql AS $$
+DECLARE
+  user_role TEXT;
 BEGIN
-  -- Only create patient profile if role is 'patient' or not specified (default)
-  IF (NEW.raw_user_meta_data->>'role') IS NULL OR (NEW.raw_user_meta_data->>'role') = 'patient' THEN
+  user_role := NEW.raw_user_meta_data->>'role';
+
+  -- Provider roles: hospital_admin, lab_admin, doctor
+  IF user_role IN ('hospital_admin', 'lab_admin', 'doctor') THEN
+    INSERT INTO provider_profiles (id, role, full_name, email, organization, status)
+    VALUES (
+      NEW.id,
+      user_role::provider_role,
+      COALESCE(NEW.raw_user_meta_data->>'full_name', 'Provider'),
+      COALESCE(NEW.email, ''),
+      COALESCE(NEW.raw_user_meta_data->>'organization', ''),
+      'approved'
+    )
+    ON CONFLICT (id) DO NOTHING;
+  ELSE
+    -- Default: treat as patient (role is NULL, 'patient', or anything else)
     INSERT INTO patient_profiles (id, full_name, email)
     VALUES (
       NEW.id,
@@ -176,13 +198,11 @@ BEGIN
     )
     ON CONFLICT (id) DO NOTHING;
   END IF;
+
   RETURN NEW;
 END;
 $$;
 
--- Only create trigger if it doesn't already conflict with provider trigger
--- The existing handle_new_user trigger handles providers
--- We add a separate trigger for patients
-CREATE OR REPLACE TRIGGER on_auth_user_created_patient
+CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_patient();
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user_signup();
