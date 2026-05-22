@@ -290,3 +290,167 @@ export async function saveDocumentUpload(rawText: string, entityType: string) {
   if (error) throw error
   return data
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PATIENT TYPES
+═══════════════════════════════════════════════════════════════ */
+export interface PatientProfile {
+  id: string
+  full_name: string
+  email: string
+  phone?: string
+  date_of_birth?: string
+  gender?: string
+  blood_type?: string
+  allergies: string[]
+  insurance_provider?: string
+  insurance_id?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  address?: string
+  area?: string
+  avatar_url?: string
+  services_needed: string[]
+  onboarding_completed: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Appointment {
+  id: number
+  patient_id: string
+  hospital_id?: number
+  doctor_id?: number
+  appointment_date: string
+  appointment_time: string
+  status: string
+  payment_method?: string
+  notes?: string
+  created_at: string
+}
+
+export interface LabBooking {
+  id: number
+  patient_id: string
+  lab_id?: number
+  booking_date: string
+  home_visit: boolean
+  status: string
+  payment_method?: string
+  total_amount: number
+  notes?: string
+  created_at: string
+}
+
+export interface HomeVisit {
+  id: number
+  patient_id: string
+  doctor_id?: number
+  visit_date: string
+  visit_time: string
+  reason: string
+  symptoms: string[]
+  urgency: string
+  address: string
+  area?: string
+  status: string
+  payment_method?: string
+  fee?: string
+  notes?: string
+  created_at: string
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PATIENT AUTH HELPERS
+═══════════════════════════════════════════════════════════════ */
+export async function patientSignUp(email: string, password: string, fullName: string) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { role: 'patient', full_name: fullName },
+      emailRedirectTo: `${window.location.origin}/`
+    }
+  })
+  if (error) throw error
+  return data
+}
+
+export async function patientSignIn(email: string, password: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) throw error
+  return data
+}
+
+export async function getPatientProfile(): Promise<PatientProfile | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data } = await supabase.from('patient_profiles').select('*').eq('id', user.id).single()
+  return data
+}
+
+export async function updatePatientProfile(updates: Partial<PatientProfile>) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { data, error } = await supabase.from('patient_profiles').update(updates).eq('id', user.id).select().single()
+  if (error) throw error
+  return data as PatientProfile
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PATIENT BOOKING HELPERS
+═══════════════════════════════════════════════════════════════ */
+export async function createAppointment(appointment: Partial<Appointment>) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { data, error } = await supabase.from('appointments').insert({
+    ...appointment,
+    patient_id: user.id
+  }).select().single()
+  if (error) throw error
+  return data as Appointment
+}
+
+export async function fetchMyAppointments() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data, error } = await supabase.from('appointments').select('*').eq('patient_id', user.id).order('appointment_date', { ascending: false })
+  if (error) throw error
+  return data as Appointment[]
+}
+
+export async function createLabBooking(booking: Partial<LabBooking>, testIds: number[]) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { data, error } = await supabase.from('lab_bookings').insert({
+    ...booking,
+    patient_id: user.id
+  }).select().single()
+  if (error) throw error
+  // Insert test associations
+  if (testIds.length > 0) {
+    await supabase.from('lab_booking_tests').insert(
+      testIds.map(tid => ({ booking_id: data.id, test_id: tid }))
+    )
+  }
+  return data as LabBooking
+}
+
+export async function createHomeVisit(visit: Partial<HomeVisit>) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { data, error } = await supabase.from('home_visits').insert({
+    ...visit,
+    patient_id: user.id
+  }).select().single()
+  if (error) throw error
+  return data as HomeVisit
+}
+
+export async function fetchMyHomeVisits() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data, error } = await supabase.from('home_visits').select('*').eq('patient_id', user.id).order('visit_date', { ascending: false })
+  if (error) throw error
+  return data as HomeVisit[]
+}
