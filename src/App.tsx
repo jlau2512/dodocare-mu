@@ -173,7 +173,7 @@ export default function App() {
 
   // App state
   const [screen, setScreen] = useState<Screen>('home')
-  const [_bookingFor, setBookingFor] = useState<BookingFor>('hospital')
+  const [, setBookingFor] = useState<BookingFor>('hospital')
   const [bookStep, setBookStep] = useState(1)
   const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null)
   const [selectedLab, setSelectedLab] = useState<Laboratory | null>(null)
@@ -238,12 +238,15 @@ export default function App() {
         // Try to get patient profile (with retry for trigger delay)
         let profile = await getPatientProfile()
         if (!profile) {
-          await new Promise(r => setTimeout(r, 1000))
+          await new Promise(r => setTimeout(r, 1500))
           profile = await getPatientProfile()
         }
         setPatient(profile)
         if (profile && !profile.onboarding_completed) {
           setAuthScreen('onboarding')
+        } else if (profile?.onboarding_completed) {
+          // User is fully onboarded, go to main app
+          setAuthScreen('welcome') // reset auth screen so main app shows
         }
       } else {
         setPatient(null)
@@ -319,49 +322,46 @@ export default function App() {
     )
   }
 
-  // Auth screens (Welcome, Login, Signup, Onboarding)
-  if (!user || authScreen === 'welcome' || authScreen === 'login' || authScreen === 'signup' || (authScreen === 'onboarding' && patient && !patient.onboarding_completed)) {
-    // Allow browsing without auth — only show auth when specifically requested
-    if (user && patient?.onboarding_completed) {
-      // User is logged in and onboarded, show main app
-    } else if (!user && authScreen !== 'login' && authScreen !== 'signup') {
-      // Show welcome only if not logged in and not trying to login/signup
-      // But allow browsing — we only block on booking
-    } else {
-      return (
-        <div className="min-h-screen flex items-center justify-center p-4"
-          style={{ background: 'linear-gradient(135deg, #dbeafe 0%, #ccfbf1 50%, #d1fae5 100%)' }}>
-          <style>{CSS}</style>
-          <div className="w-[390px] h-[844px] rounded-[44px] overflow-hidden flex flex-col relative"
-            style={{ background: '#F1F5F9', boxShadow: '0 40px 80px rgba(0,0,0,0.22),0 0 0 1px rgba(255,255,255,0.6),inset 0 1px 0 rgba(255,255,255,0.8)' }}>
+  // Auth screens: show login/signup/onboarding when explicitly requested
+  // Otherwise allow browsing the main app (auth is only required for booking/profile/records)
+  const showAuthScreen = (
+    (authScreen === 'login' || authScreen === 'signup') ||
+    (authScreen === 'onboarding' && patient && !patient.onboarding_completed)
+  )
 
-            {/* Status bar */}
-            <div className="flex justify-between items-center px-7 pt-4 pb-0.5 flex-shrink-0" style={{ zIndex: 20, position: 'relative' }}>
-              <span className="text-[13px] font-semibold" style={{ color: authScreen === 'welcome' ? 'white' : '#334155' }}>9:41</span>
-              <div className="absolute left-1/2 -translate-x-1/2 top-3 w-28 h-5 bg-black rounded-full" style={{ zIndex: 30 }} />
-              <div className="flex gap-1.5 items-center">
-                {[2,3,4,5].map((h,i)=><div key={i} className={`w-[3px] rounded-full ${authScreen === 'welcome' ? 'bg-white' : 'bg-slate-800'}`} style={{height:h*2.5}}/>)}
-              </div>
+  if (showAuthScreen) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4"
+        style={{ background: 'linear-gradient(135deg, #dbeafe 0%, #ccfbf1 50%, #d1fae5 100%)' }}>
+        <style>{CSS}</style>
+        <div className="w-[390px] h-[844px] rounded-[44px] overflow-hidden flex flex-col relative"
+          style={{ background: '#F1F5F9', boxShadow: '0 40px 80px rgba(0,0,0,0.22),0 0 0 1px rgba(255,255,255,0.6),inset 0 1px 0 rgba(255,255,255,0.8)' }}>
+
+          {/* Status bar */}
+          <div className="flex justify-between items-center px-7 pt-4 pb-0.5 flex-shrink-0" style={{ zIndex: 20, position: 'relative' }}>
+            <span className="text-[13px] font-semibold" style={{ color: authScreen === 'welcome' ? 'white' : '#334155' }}>9:41</span>
+            <div className="absolute left-1/2 -translate-x-1/2 top-3 w-28 h-5 bg-black rounded-full" style={{ zIndex: 30 }} />
+            <div className="flex gap-1.5 items-center">
+              {[2,3,4,5].map((h,i)=><div key={i} className={`w-[3px] rounded-full ${authScreen === 'welcome' ? 'bg-white' : 'bg-slate-800'}`} style={{height:h*2.5}}/>)}
             </div>
-
-            <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-              {authScreen === 'welcome' && <WelcomeScreen setAuthScreen={setAuthScreen} />}
-              {authScreen === 'login' && <LoginScreen setAuthScreen={setAuthScreen} showToast={showToast} authLoading={authLoading} setAuthLoading={setAuthLoading} />}
-              {authScreen === 'signup' && <SignupScreen setAuthScreen={setAuthScreen} showToast={showToast} authLoading={authLoading} setAuthLoading={setAuthLoading} />}
-              {authScreen === 'onboarding' && patient && <OnboardingScreen patient={patient} setPatient={setPatient} setAuthScreen={setAuthScreen} showToast={showToast} />}
-            </div>
-
-            {/* Toast */}
-            {toast && (
-              <div className="absolute bottom-8 left-4 right-4 z-[70] bg-slate-900 text-white text-[12px] font-semibold px-4 py-3 rounded-2xl text-center scale-in"
-                style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}>
-                {toast}
-              </div>
-            )}
           </div>
+
+          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+            {authScreen === 'login' && <LoginScreen setAuthScreen={setAuthScreen} showToast={showToast} authLoading={authLoading} setAuthLoading={setAuthLoading} />}
+            {authScreen === 'signup' && <SignupScreen setAuthScreen={setAuthScreen} showToast={showToast} authLoading={authLoading} setAuthLoading={setAuthLoading} />}
+            {authScreen === 'onboarding' && patient && <OnboardingScreen patient={patient} setPatient={setPatient} setAuthScreen={setAuthScreen} showToast={showToast} />}
+          </div>
+
+          {/* Toast */}
+          {toast && (
+            <div className="absolute bottom-8 left-4 right-4 z-[70] bg-slate-900 text-white text-[12px] font-semibold px-4 py-3 rounded-2xl text-center scale-in"
+              style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}>
+              {toast}
+            </div>
+          )}
         </div>
-      )
-    }
+      </div>
+    )
   }
 
   const patientName = patient?.full_name?.split(' ')[0] || user?.user_metadata?.full_name?.split(' ')[0] || 'there'
@@ -1262,9 +1262,12 @@ function HomeScreen({ setScreen, sosActive, setSosActive, openSheet, takenMeds, 
               { label: `${hospitals.length} Hospitals`, sub: 'Across Mauritius', icon: Building2, grad: 'from-blue-500 to-cyan-500', screen: 'hospitals' as Screen },
               { label: `${labs.length} Laboratories`, sub: 'ISO certified', icon: FlaskConical, grad: 'from-cyan-500 to-indigo-500', screen: 'labs' as Screen },
               { label: `${doctors.length}+ Doctors`, sub: 'All specialties', icon: Stethoscope, grad: 'from-emerald-500 to-teal-500', screen: 'hospitals' as Screen },
-              { label: 'Home Visits', sub: 'Doctor at home', icon: HomeIcon, grad: 'from-violet-500 to-purple-500', screen: 'doctor-home' as Screen },
-            ].map(({ label, sub, icon: Icon, grad, screen }) => (
-              <button key={label} onClick={() => setScreen(screen)}
+              { label: 'Home Visits', sub: 'Doctor at home', icon: HomeIcon, grad: 'from-violet-500 to-purple-500', screen: 'doctor-home' as Screen, authRequired: true },
+            ].map(({ label, sub, icon: Icon, grad, screen, authRequired }) => (
+              <button key={label} onClick={() => {
+                if (authRequired && !user) { showToast('Please sign in to book a home visit'); return }
+                setScreen(screen)
+              }}
                 className="rounded-2xl p-3 flex items-center gap-3 text-left active:scale-[0.97] transition-transform"
                 style={{ background: 'white', border: '1px solid #F1F5F9', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
                 <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${grad} flex items-center justify-center flex-shrink-0`}>
