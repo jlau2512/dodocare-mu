@@ -142,22 +142,13 @@ export async function signUp(email: string, password: string, role: ProviderRole
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { role, full_name: fullName, organization } }
+    options: {
+      data: { role, full_name: fullName, organization },
+      emailRedirectTo: `${window.location.origin}/admin`
+    }
   })
   if (error) throw error
-
-  // Create provider profile
-  if (data.user) {
-    const { error: profileError } = await supabase.from('provider_profiles').insert({
-      id: data.user.id,
-      role,
-      full_name: fullName,
-      email,
-      organization,
-      status: 'approved'
-    })
-    if (profileError) throw profileError
-  }
+  // Profile is auto-created by database trigger (handle_new_user)
   return data
 }
 

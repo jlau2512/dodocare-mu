@@ -166,7 +166,12 @@ export default function AdminPortal() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        const profile = await getProfile()
+        // Small delay to let the database trigger create the profile
+        let profile = await getProfile()
+        if (!profile) {
+          await new Promise(r => setTimeout(r, 1000))
+          profile = await getProfile()
+        }
         setUser(profile)
       } else {
         setUser(null)
@@ -199,7 +204,8 @@ export default function AdminPortal() {
     try {
       if (authMode === 'signup') {
         await signUp(email, password, role, fullName, organization)
-        showToast('Account created! You can now sign in.')
+        setAuthError('')
+        showToast('Check your email to confirm your account!')
         setAuthMode('login')
       } else {
         await signIn(email, password)
